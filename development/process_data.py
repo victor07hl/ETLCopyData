@@ -24,6 +24,7 @@ class proccess_data(commun_functions):
         df = df.copy()
         df = df.dropna()
         
+        #processing and transform data
         df['department_id'] = df['department_id'].apply(self.str_to_int)
         df['job_id'] = df['job_id'].apply(self.str_to_int)
         df_invalid_format = df[(df['department_id']=='NoNumber') | (df['job_id']=='NoNumber')]
@@ -34,7 +35,38 @@ class proccess_data(commun_functions):
             df[col] = df[col].astype(schema[col])
 
         
-        return df,df_nulls,df_invalid_format
+        return df,df_nulls
+    
+    def process_departments(self,df,schema):
+        df_nulls = df.isna().any(axis=1)
+        df_nulls = df[df_nulls]
+        df = df.copy()
+        df = df.dropna()
+
+        #processing and transforming data
+        for col in schema.keys():
+            df[col] = df[col].astype(schema[col])
+
+        return df,df_nulls
+    
+    def process_jobs(self,df,schema):
+        df_nulls = df.isna().any(axis=1)
+        df_nulls = df[df_nulls]
+        df = df.copy()
+        df = df.dropna()
+
+        #processing and transforming data
+        for col in schema.keys():
+            df[col] = df[col].astype(schema[col])
+
+        return df,df_nulls
+    
+    def get_process(self,table):
+        process_function = {'departments':self.process_departments,
+                            'hired_employees':self.process_hired,
+                            'jobs':self.process_jobs}
+        return process_function[table]
+
 
 
 
@@ -43,11 +75,11 @@ if __name__ == '__main__':
     comun = commun_functions()
     from migratedata import migratedata
     migrate = migratedata()
-    path = r"C:\Users\USUARIO\Desktop\Developments\ETLCopyData\data\hired_employees.xlsx"
+    path = r"C:\Users\USUARIO\Desktop\Developments\ETLCopyData\data\jobs.xlsx"
     df,name = migrate.read_data_source(path)
     
     proccess_data = proccess_data()
-    df_new,nulls,invalid_format = proccess_data.process_hired(df,migrate.get_metadata(name))
+    df_new,nulls = proccess_data.process_jobs(df,migrate.get_metadata(name))
     print(df_new.head())
     print(nulls[nulls['id']==162].head())
 
