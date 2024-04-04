@@ -13,9 +13,15 @@ class migratedata(proccess_data):
             df,name = self.read_data_source(file)
             Trans_data = self.get_process(name)
             df, df_nulls = Trans_data(df,self.get_metadata(name))
+            
+            #verify that the folder exits
+            if os.path.isdir(sink_nulls) != True:
+                os.mkdir(sink_nulls)
+
             nulls_path = os.path.join(sink_nulls,name+'_nulls.csv')
-            df_nulls.to_csv(nulls_path,index=False)
-            print(nulls_path,'saved')
+            if len(df_nulls)> 0:
+                df_nulls.to_csv(nulls_path,index=False) 
+                print(nulls_path,'saved')
 
 
         pass
