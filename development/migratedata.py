@@ -2,29 +2,38 @@
 import pandas as pd
 import os 
 from process_data import proccess_data
+from connections import connections
 
-class migratedata(proccess_data):
+class migratedata(proccess_data,connections):
     def __init__(self) -> None:
         pass
 
-    def batch_migration(self,parent_folder:str,sink:str,sink_nulls:str) -> str:
-        files = [os.path.join(parent_folder,file) for file in os.listdir(parent_folder)]
-        for file in files:
-            df,name = self.read_data_source(file)
-            Trans_data = self.get_process(name)
-            df, df_nulls = Trans_data(df,self.get_metadata(name))
+    def batch_migration(self,file:str,sink_schema:str,sink_nulls:str) -> str:
+        df,name = self.read_data_source(file)
+        Trans_data = self.get_process(name)
+        df, df_nulls = Trans_data(df,self.get_metadata(name))
             
-            #verify that the folder exits
-            if os.path.isdir(sink_nulls) != True:
-                os.mkdir(sink_nulls)
+        #verify that the folder exits
+        if os.path.isdir(sink_nulls) != True:
+            os.mkdir(sink_nulls)
 
-            nulls_path = os.path.join(sink_nulls,name+'_nulls.csv')
-            if len(df_nulls)> 0:
-                df_nulls.to_csv(nulls_path,index=False) 
-                print(nulls_path,'saved')
+        nulls_path = os.path.join(sink_nulls,name+'_nulls.csv')
+        if len(df_nulls)> 0:
+            df_nulls.to_csv(nulls_path,index=False) 
+            print(nulls_path,'saved')
+
+        engine = self.engine()
+        df.to_sql(name=name, con=engine, schema= sink_schema, if_exists = 'replace')
+        print(f'table {name}, was loaded!')
+    
+    def full_batch_migration(self, parent_folder:str,sink_schema:str, sink_nulls:str) :
+        files = [os.path.join(parent_folder,file)  for file in os.listdir(parent_folder)]
+        files = [file for file in files if os.path.isdir(file)!=True]
+        for file in files:
+            self.batch_migration(file,sink_schema,sink_nulls)
 
 
-        pass
+
 
     def get_metadata(self,source_name) -> dict:
         schema = {'departments':{'id':int,'department':str},
@@ -55,6 +64,3 @@ if __name__ == '__main__':
     #path = r"C:\Users\USUARIO\Desktop\Developments\ETLCopyData\data\hired_employees.xlsx"
     #df = migrate.read_data_source(path)
     #print(df.head())
-    parent_folder = r'C:\Users\USUARIO\Desktop\Developments\ETLCopyData\data'
-    sink_nulls = r'C:\Users\USUARIO\Desktop\Developments\ETLCopyData\data\nulls'
-    migrate.batch_migration(parent_folder,'jsjs',sink_nulls)
