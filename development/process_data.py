@@ -1,4 +1,6 @@
 import re
+import json
+import pandas as pd 
 class commun_functions():
     def __init__(self) -> None:
         pass
@@ -11,6 +13,16 @@ class commun_functions():
         else:
             int_number = 'NoNumber'
         return int_number
+    
+    def strjson2pd_df(self,str_json):
+        if type(str_json) == bytes:
+            bstr_json = str_json
+        else:
+            bstr_json = bytes(str_json,'utf-8')
+        json_object = json.loads(bstr_json)
+        df = pd.DataFrame(json_object)
+        print(df.head())
+        return df
     
 
 class proccess_data(commun_functions):
@@ -66,6 +78,7 @@ class proccess_data(commun_functions):
                             'hired_employees':self.process_hired,
                             'jobs':self.process_jobs}
         return process_function[table]
+    
 
 
 

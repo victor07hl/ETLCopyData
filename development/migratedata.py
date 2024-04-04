@@ -3,6 +3,7 @@ import pandas as pd
 import os 
 from process_data import proccess_data
 from connections import connections
+from datetime import datetime
 
 class migratedata(proccess_data,connections):
     def __init__(self) -> None:
@@ -14,8 +15,9 @@ class migratedata(proccess_data,connections):
         df, df_nulls = Trans_data(df,self.get_metadata(name))
             
         #verify that the folder exits
+        sink_nulls = os.path.join(sink_nulls,'batch')
         if os.path.isdir(sink_nulls) != True:
-            os.mkdir(sink_nulls)
+            os.makedirs(sink_nulls)
 
         nulls_path = os.path.join(sink_nulls,name+'_nulls.csv')
         if len(df_nulls)> 0:
@@ -23,7 +25,7 @@ class migratedata(proccess_data,connections):
             print(nulls_path,'saved')
 
         engine = self.engine()
-        df.to_sql(name=name, con=engine, schema= sink_schema, if_exists = 'replace')
+        df.to_sql(name=name, con=engine, schema= sink_schema, if_exists = 'replace',index=False)
         print(f'table {name}, was loaded!')
     
     def full_batch_migration(self, parent_folder:str,sink_schema:str, sink_nulls:str) :
@@ -32,16 +34,35 @@ class migratedata(proccess_data,connections):
         for file in files:
             self.batch_migration(file,sink_schema,sink_nulls)
 
-
-
-
     def get_metadata(self,source_name) -> dict:
         schema = {'departments':{'id':int,'department':str},
                   'hired_employees':{'id':int,'name':str,'DATETIME':str,'department_id':int,'job_id':int},
                   'jobs':{'id':int,'job':str}} 
         return schema[source_name]
         
+    def streaming_load(self,table,df,sink_schema,sink_nulls):
+        try:
+            Trans_data = self.get_process(table)
+            df, df_nulls = Trans_data(df,self.get_metadata(table))
+            sink_nulls = os.path.join(sink_nulls,'streaming')
+            print(sink_nulls)
+            if os.path.isdir(sink_nulls) != True:
+                os.makedirs(sink_nulls)
+
+            nulls_path = os.path.join(sink_nulls,table+'_nulls.csv')
+            if len(df_nulls)> 0:
+                df_nulls['datetime'] = datetime.now().strftime("%Y/%m/%dT%H:%M:%S")
+                df_nulls.to_csv(nulls_path,index=False) 
+                print(nulls_path,'saved')
+
+            engine = self.engine()
+            df.to_sql(name=table, con=engine, schema= sink_schema, if_exists = 'append',index=False)
+        except KeyError as e:
+            return f'table {table} was not found on metadata'
+        return f'{len(df)} rows was inserted on table {table}'
+
         
+
 
 
     def read_data_source(self,source:str):

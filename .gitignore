@@ -1,4 +1,4 @@
 #ignore test file
 */test.py
 */credentials.py
-*__pycache__*
+*.pyc

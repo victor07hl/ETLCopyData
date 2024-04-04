@@ -1,4 +1,3 @@
-import pyodbc
 from sqlalchemy import create_engine
 from credentials import msql_user, msql_pwd, db, server_ip
 class connections:
