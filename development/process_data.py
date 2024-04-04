@@ -21,8 +21,10 @@ class commun_functions():
             bstr_json = bytes(str_json,'utf-8')
         json_object = json.loads(bstr_json)
         df = pd.DataFrame(json_object)
-        print(df.head())
-        return df
+        if len(df)>0:
+            return df
+        else:
+            return None
     
 
 class proccess_data(commun_functions):
