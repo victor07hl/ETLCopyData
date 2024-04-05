@@ -30,4 +30,25 @@ class queries():
             order by department, job
         '''
 
+        self.hired_above_mean = '''
+                            with aux as (
+                            select 
+                            d.id,
+                            d.department,
+                            count(1) as hired
+                            from stage.hired_employees h
+                            left join stage.departments d on h.department_id = d.id
+                            where YEAR(cast(h.DATETIME as datetime)) = 2021
+                            group by d.id, d.department
+                            )
+                            ,
+                            h_avg as (
+
+                            select AVG(hired) hired from aux)
+
+                            select * from aux
+                            where hired > (select hired from h_avg)
+                            order by hired desc
+        '''
+
         
