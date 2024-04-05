@@ -52,7 +52,10 @@ class migratedata(proccess_data,connections):
             nulls_path = os.path.join(sink_nulls,table+'_nulls.csv')
             if len(df_nulls)> 0:
                 df_nulls['datetime'] = datetime.now().strftime("%Y/%m/%dT%H:%M:%S")
-                df_nulls.to_csv(nulls_path,index=False) 
+                try:
+                    df_nulls.to_csv(nulls_path,index=False,mode='x') 
+                except FileExistsError as e:
+                    df_nulls.to_csv(nulls_path,index=False,mode='a',header=False) 
                 print(nulls_path,'saved')
 
             engine = self.engine()
