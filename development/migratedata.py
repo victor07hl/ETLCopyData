@@ -4,6 +4,7 @@ import os
 from process_data import proccess_data
 from connections import connections
 from datetime import datetime
+from queries import queries
 
 class migratedata(proccess_data,connections):
     def __init__(self) -> None:
@@ -64,7 +65,15 @@ class migratedata(proccess_data,connections):
             return f'table {table} was not found on metadata'
         return f'{len(df)} rows was inserted on table {table}'
 
-        
+    def query_db (self,str_sql):
+        engine = self.engine()
+        df = pd.read_sql(str_sql,con=engine)
+        return df
+
+    def get_num_hired_Q(self):
+        str_query = queries().str_sql_count_hired_Q
+        df = self.query_db(str_query)
+        return df.to_json(index=False,orient='records')
 
 
 

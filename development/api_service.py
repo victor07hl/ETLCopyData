@@ -46,5 +46,10 @@ def restore_table(table):
     restore_tbl = tbl_backup.restore_tbl_backup('stage',table)
     return jsonify({'connection':'success','message':restore_tbl})
 
+@app.route('/getNumHired', methods = ['GET'])
+def get_num_hired():
+    migrate = migratedata()
+    output = migrate.get_num_hired_Q()
+    return jsonify({'connection':'success','message':output})
 if __name__ == '__main__':
     app.run(debug=True)
