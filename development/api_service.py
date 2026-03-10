@@ -100,4 +100,4 @@ def get_num_hired():
 
 if __name__ == '__main__':
     debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
-    app.run(debug=debug)
+    app.run(host='0.0.0.0', port=5000, debug=debug)

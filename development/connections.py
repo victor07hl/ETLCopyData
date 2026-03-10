@@ -17,7 +17,8 @@ class connections:
     def engine(self):
         connection_string = (
             f'mssql+pyodbc://{msql_user}:{msql_pwd}@{server_ip}/{db}'
-            f'?driver=ODBC+Driver+17+for+SQL+Server'
+            f'?driver=ODBC+Driver+18+for+SQL+Server'
+            f'&TrustServerCertificate=yes'
         )
         return create_engine(
             connection_string,
