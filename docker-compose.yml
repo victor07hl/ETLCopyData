@@ -6,8 +6,13 @@ services:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: ${SA_PASSWORD}
       MSSQL_PID: Developer
+      MSSQL_MEMORY_LIMIT_MB: 2048
     ports:
       - "1433:1433"
+    deploy:
+      resources:
+        limits:
+          memory: 2.5g
     volumes:
       - sqlserver_data:/var/opt/mssql
       - ./docker/mssql-entrypoint.sh:/docker/mssql-entrypoint.sh
