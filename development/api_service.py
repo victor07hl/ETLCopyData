@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from process_data import commun_functions
 from migratedata import migratedata
 from backups import backups
@@ -21,6 +21,24 @@ def _validate_table(table: str):
     if table not in ALLOWED_TABLES:
         return jsonify({'error': f"Table '{table}' is not allowed"}), 400
     return None
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/table/<table>', methods=['GET'])
+def get_table_data(table):
+    error = _validate_table(table)
+    if error:
+        return error
+    try:
+        df = migratedata().query_db(f'SELECT * FROM {SCHEMA}.{table}')
+        return jsonify({'status': 'success', 'data': df.to_dict(orient='records')}), 200
+    except Exception as e:
+        logger.error("Query failed for table %s: %s", table, e)
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/test', methods=['POST'])
