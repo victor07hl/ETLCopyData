@@ -15,7 +15,7 @@ CREATE TABLE stage.departments (
 
 CREATE TABLE stage.jobs (
     id   INTEGER     NOT NULL,
-    job  VARCHAR(30) NOT NULL,
+    job  VARCHAR(100) NOT NULL,
     CONSTRAINT pk_jobs PRIMARY KEY (id)
 );
 

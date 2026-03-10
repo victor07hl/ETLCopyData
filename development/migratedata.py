@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = {'xlsx', 'csv'}
 
+# Load order respects FK constraints: parent tables before child tables
+LOAD_ORDER = ['departments', 'jobs', 'hired_employees']
+
 TABLE_SCHEMAS = {
     'departments': {'id': int, 'department': str},
     'hired_employees': {'id': int, 'name': str, 'DATETIME': str, 'department_id': int, 'job_id': int},
@@ -48,25 +51,36 @@ class migratedata(process_data, connections):
         df_nulls.to_csv(nulls_path, index=False, mode=mode, header=(mode == 'w'))
         logger.info("Nulls saved to %s", nulls_path)
 
-    def batch_migration(self, file: str, sink_schema: str, sink_nulls: str) -> None:
+    def batch_migration(self, file: str, sink_schema: str, sink_nulls: str, engine=None) -> None:
         df, name = self.read_data_source(file)
         df, df_nulls = self.get_process(name)(df, self.get_metadata(name))
 
         nulls_path = os.path.join(sink_nulls, 'batch', f'{name}_nulls.csv')
         self._save_nulls(df_nulls, nulls_path)
 
-        engine = self.engine()
-        df.to_sql(name=name, con=engine, schema=sink_schema, if_exists='replace', index=False)
+        if engine is None:
+            engine = self.engine()
+        df.to_sql(name=name, con=engine, schema=sink_schema, if_exists='append', index=False)
         logger.info("Table %s loaded successfully", name)
 
     def full_batch_migration(self, parent_folder: str, sink_schema: str, sink_nulls: str) -> None:
-        files = [
-            os.path.join(parent_folder, f)
+        from sqlalchemy import text
+        all_files = {
+            os.path.splitext(f)[0]: os.path.join(parent_folder, f)
             for f in os.listdir(parent_folder)
             if os.path.isfile(os.path.join(parent_folder, f))
-        ]
-        for file in files:
-            self.batch_migration(file, sink_schema, sink_nulls)
+        }
+        engine = self.engine()
+        # Delete in reverse FK order to satisfy constraints
+        with engine.begin() as conn:
+            for name in reversed(LOAD_ORDER):
+                if name in all_files:
+                    conn.execute(text(f'DELETE FROM {sink_schema}.{name}'))
+                    logger.info("Cleared table %s", name)
+        # Load in FK-safe order: parents before children
+        ordered = [all_files[name] for name in LOAD_ORDER if name in all_files]
+        for file in ordered:
+            self.batch_migration(file, sink_schema, sink_nulls, engine=engine)
 
     def streaming_load(self, table: str, df: pd.DataFrame, sink_schema: str, sink_nulls: str) -> str:
         try:
