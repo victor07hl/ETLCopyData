@@ -1,99 +1,92 @@
-#from connections import connections
+import os
+import logging
 import pandas as pd
-import os 
-from process_data import proccess_data
-from connections import connections
 from datetime import datetime
+from process_data import process_data
+from connections import connections
 from queries import queries
 
-class migratedata(proccess_data,connections):
-    def __init__(self) -> None:
-        pass
+logger = logging.getLogger(__name__)
 
-    def batch_migration(self,file:str,sink_schema:str,sink_nulls:str) -> str:
-        df,name = self.read_data_source(file)
-        Trans_data = self.get_process(name)
-        df, df_nulls = Trans_data(df,self.get_metadata(name))
-            
-        #verify that the folder exits
-        sink_nulls = os.path.join(sink_nulls,'batch')
-        if os.path.isdir(sink_nulls) != True:
-            os.makedirs(sink_nulls)
+SUPPORTED_EXTENSIONS = {'xlsx', 'csv'}
 
-        nulls_path = os.path.join(sink_nulls,name+'_nulls.csv')
-        if len(df_nulls)> 0:
-            df_nulls.to_csv(nulls_path,index=False) 
-            print(nulls_path,'saved')
+TABLE_SCHEMAS = {
+    'departments': {'id': int, 'department': str},
+    'hired_employees': {'id': int, 'name': str, 'DATETIME': str, 'department_id': int, 'job_id': int},
+    'jobs': {'id': int, 'job': str},
+}
+
+
+class migratedata(process_data, connections):
+
+    def get_metadata(self, source_name: str) -> dict:
+        if source_name not in TABLE_SCHEMAS:
+            raise KeyError(f"No schema defined for source '{source_name}'")
+        return TABLE_SCHEMAS[source_name]
+
+    def read_data_source(self, source: str) -> tuple[pd.DataFrame, str]:
+        filename = os.path.basename(source)
+        name, ext = os.path.splitext(filename)
+        ext = ext.lstrip('.')
+
+        if ext not in SUPPORTED_EXTENSIONS:
+            raise ValueError(f"Unsupported file extension '.{ext}'. Supported: {SUPPORTED_EXTENSIONS}")
+
+        if ext == 'xlsx':
+            df = pd.read_excel(source, header=None)
+        else:
+            df = pd.read_csv(source, header=None)
+
+        df.columns = list(self.get_metadata(name).keys())
+        return df, name
+
+    def _save_nulls(self, df_nulls: pd.DataFrame, nulls_path: str) -> None:
+        if len(df_nulls) == 0:
+            return
+        os.makedirs(os.path.dirname(nulls_path), exist_ok=True)
+        mode = 'a' if os.path.exists(nulls_path) else 'w'
+        df_nulls.to_csv(nulls_path, index=False, mode=mode, header=(mode == 'w'))
+        logger.info("Nulls saved to %s", nulls_path)
+
+    def batch_migration(self, file: str, sink_schema: str, sink_nulls: str) -> None:
+        df, name = self.read_data_source(file)
+        df, df_nulls = self.get_process(name)(df, self.get_metadata(name))
+
+        nulls_path = os.path.join(sink_nulls, 'batch', f'{name}_nulls.csv')
+        self._save_nulls(df_nulls, nulls_path)
 
         engine = self.engine()
-        df.to_sql(name=name, con=engine, schema= sink_schema, if_exists = 'replace',index=False)
-        print(f'table {name}, was loaded!')
-    
-    def full_batch_migration(self, parent_folder:str,sink_schema:str, sink_nulls:str) :
-        files = [os.path.join(parent_folder,file)  for file in os.listdir(parent_folder)]
-        files = [file for file in files if os.path.isdir(file)!=True]
+        df.to_sql(name=name, con=engine, schema=sink_schema, if_exists='replace', index=False)
+        logger.info("Table %s loaded successfully", name)
+
+    def full_batch_migration(self, parent_folder: str, sink_schema: str, sink_nulls: str) -> None:
+        files = [
+            os.path.join(parent_folder, f)
+            for f in os.listdir(parent_folder)
+            if os.path.isfile(os.path.join(parent_folder, f))
+        ]
         for file in files:
-            self.batch_migration(file,sink_schema,sink_nulls)
+            self.batch_migration(file, sink_schema, sink_nulls)
 
-    def get_metadata(self,source_name) -> dict:
-        schema = {'departments':{'id':int,'department':str},
-                  'hired_employees':{'id':int,'name':str,'DATETIME':str,'department_id':int,'job_id':int},
-                  'jobs':{'id':int,'job':str}} 
-        return schema[source_name]
-        
-    def streaming_load(self,table,df,sink_schema,sink_nulls):
+    def streaming_load(self, table: str, df: pd.DataFrame, sink_schema: str, sink_nulls: str) -> str:
         try:
-            Trans_data = self.get_process(table)
-            df, df_nulls = Trans_data(df,self.get_metadata(table))
-            sink_nulls = os.path.join(sink_nulls,'streaming')
-            print(sink_nulls)
-            if os.path.isdir(sink_nulls) != True:
-                os.makedirs(sink_nulls)
+            df, df_nulls = self.get_process(table)(df, self.get_metadata(table))
 
-            nulls_path = os.path.join(sink_nulls,table+'_nulls.csv')
-            if len(df_nulls)> 0:
+            if len(df_nulls) > 0:
                 df_nulls['datetime'] = datetime.now().strftime("%Y/%m/%dT%H:%M:%S")
-                try:
-                    df_nulls.to_csv(nulls_path,index=False,mode='x') 
-                except FileExistsError as e:
-                    df_nulls.to_csv(nulls_path,index=False,mode='a',header=False) 
-                print(nulls_path,'saved')
+                nulls_path = os.path.join(sink_nulls, 'streaming', f'{table}_nulls.csv')
+                self._save_nulls(df_nulls, nulls_path)
 
             engine = self.engine()
-            df.to_sql(name=table, con=engine, schema= sink_schema, if_exists = 'append',index=False)
-        except KeyError as e:
-            return f'table {table} was not found on metadata'
-        return f'{len(df)} rows was inserted on table {table}'
+            df.to_sql(name=table, con=engine, schema=sink_schema, if_exists='append', index=False)
+            return f'{len(df)} rows inserted into table {table}'
+        except KeyError:
+            return f"Table '{table}' was not found in metadata"
 
-    def query_db (self,str_sql):
+    def query_db(self, str_sql: str) -> pd.DataFrame:
         engine = self.engine()
-        df = pd.read_sql(str_sql,con=engine)
-        return df
+        return pd.read_sql(str_sql, con=engine)
 
-    def get_num_hired_Q(self):
-        str_query = queries().str_sql_count_hired_Q
-        df = self.query_db(str_query)
-        return df.to_json(index=False,orient='records')
-
-
-
-    def read_data_source(self,source:str):
-        extension = os.path.split(source)[1]
-        name = extension.split('.')[0]
-        extension = extension.split('.')[1]
-        if extension == 'xlsx':
-            df = pd.read_excel(source,header=None)
-        elif extension == 'csv':
-            df = pd.read_csv(source,header=None)
-
-        schema = self.get_metadata(name)
-        columns = list(schema.keys())
-        df.columns = columns
-        #df = df.astype(schema)
-        return df,name
-
-if __name__ == '__main__':
-    migrate = migratedata()
-    #path = r"C:\Users\USUARIO\Desktop\Developments\ETLCopyData\data\hired_employees.xlsx"
-    #df = migrate.read_data_source(path)
-    #print(df.head())
+    def get_num_hired_Q(self) -> str:
+        df = self.query_db(queries().str_sql_count_hired_Q)
+        return df.to_json(index=False, orient='records')
