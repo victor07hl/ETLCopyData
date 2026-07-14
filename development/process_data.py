@@ -1,101 +1,62 @@
-import re
 import json
-import pandas as pd 
-class commun_functions():
-    def __init__(self) -> None:
-        pass
+import logging
+import pandas as pd
 
-    def str_to_int(self,str_number:str) -> int:
+logger = logging.getLogger(__name__)
+
+
+class commun_functions:
+    def str_to_int(self, str_number: str) -> int | None:
         str_number = str(str_number)
         str_number = str_number.split('.')[0]
         if str_number.isnumeric():
-            int_number = int(str_number)
-        else:
-            int_number = 'NoNumber'
-        return int_number
-    
-    def strjson2pd_df(self,str_json):
-        if type(str_json) == bytes:
+            return int(str_number)
+        return None
+
+    def strjson2pd_df(self, str_json) -> pd.DataFrame | None:
+        if isinstance(str_json, bytes):
             bstr_json = str_json
         else:
-            bstr_json = bytes(str_json,'utf-8')
+            bstr_json = bytes(str_json, 'utf-8')
         json_object = json.loads(bstr_json)
         df = pd.DataFrame(json_object)
-        if len(df)>0:
-            return df
-        else:
-            return None
-    
+        return df if len(df) > 0 else None
 
-class proccess_data(commun_functions):
-    def __init__(self) -> None:
-        pass
 
-    def process_hired(self,df,schema=None):
-        #schema : 'departments' -> {'id':int,'department':str}
-        df_nulls = df.isna().any(axis=1)
-        df_nulls = df[df_nulls]
-        df = df.copy()
-        df = df.dropna()
-        
-        #processing and transform data
+class process_data(commun_functions):
+
+    def _process_generic(self, df: pd.DataFrame, schema: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+        df_nulls = df[df.isna().any(axis=1)]
+        df = df.dropna().copy()
+        for col, dtype in schema.items():
+            df[col] = df[col].astype(dtype)
+        return df, df_nulls
+
+    def process_hired(self, df: pd.DataFrame, schema: dict = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+        df_nulls = df[df.isna().any(axis=1)]
+        df = df.dropna().copy()
+
         df['department_id'] = df['department_id'].apply(self.str_to_int)
         df['job_id'] = df['job_id'].apply(self.str_to_int)
-        df_invalid_format = df[(df['department_id']=='NoNumber') | (df['job_id']=='NoNumber')]
-        df = df[(df['department_id']!='NoNumber') & (df['job_id']!='NoNumber')]
+        df = df[df['department_id'].notna() & df['job_id'].notna()]
 
-        #casting cols
-        for col in schema.keys():
-            df[col] = df[col].astype(schema[col])
+        for col, dtype in schema.items():
+            df[col] = df[col].astype(dtype)
 
-        
-        return df,df_nulls
-    
-    def process_departments(self,df,schema):
-        df_nulls = df.isna().any(axis=1)
-        df_nulls = df[df_nulls]
-        df = df.copy()
-        df = df.dropna()
+        return df, df_nulls
 
-        #processing and transforming data
-        for col in schema.keys():
-            df[col] = df[col].astype(schema[col])
+    def process_departments(self, df: pd.DataFrame, schema: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+        return self._process_generic(df, schema)
 
-        return df,df_nulls
-    
-    def process_jobs(self,df,schema):
-        df_nulls = df.isna().any(axis=1)
-        df_nulls = df[df_nulls]
-        df = df.copy()
-        df = df.dropna()
+    def process_jobs(self, df: pd.DataFrame, schema: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+        return self._process_generic(df, schema)
 
-        #processing and transforming data
-        for col in schema.keys():
-            df[col] = df[col].astype(schema[col])
-
-        return df,df_nulls
-    
-    def get_process(self,table):
-        process_function = {'departments':self.process_departments,
-                            'hired_employees':self.process_hired,
-                            'jobs':self.process_jobs}
+    def get_process(self, table: str):
+        process_function = {
+            'departments': self.process_departments,
+            'hired_employees': self.process_hired,
+            'jobs': self.process_jobs,
+        }
+        if table not in process_function:
+            raise KeyError(f"No processing function defined for table '{table}'")
         return process_function[table]
-    
-
-
-
-
-    
-if __name__ == '__main__':
-    comun = commun_functions()
-    from migratedata import migratedata
-    migrate = migratedata()
-    path = r"C:\Users\USUARIO\Desktop\Developments\ETLCopyData\data\jobs.xlsx"
-    df,name = migrate.read_data_source(path)
-    
-    proccess_data = proccess_data()
-    df_new,nulls = proccess_data.process_jobs(df,migrate.get_metadata(name))
-    print(df_new.head())
-    print(nulls[nulls['id']==162].head())
-
-

@@ -1,17 +1,28 @@
+import os
+import logging
 from sqlalchemy import create_engine
-from credentials import msql_user, msql_pwd, db, server_ip
+
+logger = logging.getLogger(__name__)
+
+try:
+    from credentials import msql_user, msql_pwd, db, server_ip
+except ImportError:
+    msql_user = os.getenv('DB_USER', '')
+    msql_pwd = os.getenv('DB_PWD', '')
+    db = os.getenv('DB_NAME', '')
+    server_ip = os.getenv('DB_SERVER', '')
+
+
 class connections:
-    def __init__(self) -> None:
-        pass
-
     def engine(self):
-        driver = '{ODBC Driver 17 for SQL Server}'
-        #str_connect = 'DRIVER='+driver+';Server='+server_ip+'; Database='+db+';UID='+msql_user+';PWD='+ msql_pwd
-        str_connect = f'mssql+pyodbc://{msql_user}:{msql_pwd}@{server_ip}/{db}?driver=ODBC Driver 17 for SQL Server'
-        #print(str_connect)
-        #cnxn = pyodbc.connect(str_connect)
-        cnxn = create_engine(str_connect)
-        
-        return cnxn
-
-
+        connection_string = (
+            f'mssql+pyodbc://{msql_user}:{msql_pwd}@{server_ip}/{db}'
+            f'?driver=ODBC+Driver+18+for+SQL+Server'
+            f'&TrustServerCertificate=yes'
+        )
+        return create_engine(
+            connection_string,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+        )

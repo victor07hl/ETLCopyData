@@ -1,4 +1,25 @@
-#ignore test file
-*/test.py
+# Credentials
 */credentials.py
+
+# Test files
+*/test.py
+
+# Python cache
 *.pyc
+__pycache__/
+*.pyo
+
+# Environment files
+.env
+*.env
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+
+# Backups output
+backups/

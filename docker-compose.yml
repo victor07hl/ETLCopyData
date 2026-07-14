@@ -1,0 +1,46 @@
+services:
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: ${SA_PASSWORD}
+      MSSQL_PID: Developer
+      MSSQL_MEMORY_LIMIT_MB: 2048
+    ports:
+      - "1433:1433"
+    deploy:
+      resources:
+        limits:
+          memory: 2.5g
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./docker/mssql-entrypoint.sh:/docker/mssql-entrypoint.sh
+      - ./Queries/createtable.sql:/docker/createtable.sql
+    entrypoint: ["/bin/bash", "/docker/mssql-entrypoint.sh"]
+    healthcheck:
+      test: >
+        /opt/mssql-tools18/bin/sqlcmd
+        -S localhost -U sa -P "$$SA_PASSWORD"
+        -Q "SELECT 1" -No
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      DB_SERVER: db
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  sqlserver_data:

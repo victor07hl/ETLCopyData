@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ETL Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --accent: #4f8ef7;
+      --accent2: #7c5cbf;
+      --success: #2ecc71;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --border: #2d3250;
+    }
+    * { box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; z-index: 100; }
+    .sidebar-brand { padding: 24px 20px 16px; border-bottom: 1px solid var(--border); }
+    .sidebar-brand h5 { margin: 0; font-weight: 700; font-size: 1rem; color: var(--accent); letter-spacing: .5px; }
+    .sidebar-brand small { color: var(--muted); font-size: .75rem; }
+    .nav-section { padding: 16px 12px 4px; font-size: .68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    .sidebar .nav-link { color: var(--muted); border-radius: 8px; padding: 10px 14px; margin: 2px 8px; display: flex; align-items: center; gap: 10px; font-size: .875rem; transition: all .15s; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { background: var(--surface2); color: var(--text); }
+    .sidebar .nav-link.active { color: var(--accent); }
+    .sidebar .nav-link i { width: 16px; text-align: center; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-left: auto; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* Main */
+    .main { margin-left: 240px; padding: 28px 32px; min-height: 100vh; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .page-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
+    .page-sub { color: var(--muted); font-size: .875rem; margin-bottom: 28px; }
+
+    /* Cards */
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; }
+    .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+    .stat-icon.blue { background: rgba(79,142,247,.15); color: var(--accent); }
+    .stat-icon.purple { background: rgba(124,92,191,.15); color: var(--accent2); }
+    .stat-icon.green { background: rgba(46,204,113,.15); color: var(--success); }
+    .stat-label { font-size: .8rem; color: var(--muted); margin-bottom: 2px; }
+    .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+
+    /* Table */
+    .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .table-card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .table-card-header h6 { margin: 0; font-weight: 600; }
+    .table-wrapper { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+    table.etl-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    table.etl-table thead th { background: var(--surface2); padding: 10px 16px; text-align: left; font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+    table.etl-table tbody td { padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+    table.etl-table tbody tr:hover td { background: var(--surface2); }
+    table.etl-table tbody tr:last-child td { border-bottom: none; }
+    .badge-q { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
+    .badge-q.has { background: rgba(46,204,113,.15); color: var(--success); }
+    .badge-q.none { background: var(--surface2); color: var(--muted); }
+
+    /* Buttons */
+    .btn-etl { border: none; border-radius: 10px; padding: 10px 20px; font-size: .875rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all .15s; }
+    .btn-primary-etl { background: var(--accent); color: #fff; }
+    .btn-primary-etl:hover { background: #3a78e8; }
+    .btn-success-etl { background: var(--success); color: #fff; }
+    .btn-success-etl:hover { background: #27ae60; }
+    .btn-warning-etl { background: var(--warning); color: #fff; }
+    .btn-warning-etl:hover { background: #d68910; }
+    .btn-danger-etl { background: var(--danger); color: #fff; }
+    .btn-danger-etl:hover { background: #c0392b; }
+    .btn-etl:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Op cards */
+    .op-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+    .op-card h6 { font-weight: 600; margin-bottom: 6px; }
+    .op-card p { color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+    /* Toast */
+    #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast-msg { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: .875rem; min-width: 260px; display: flex; align-items: center; gap: 10px; animation: slideIn .2s ease; }
+    .toast-msg.success { border-left: 3px solid var(--success); }
+    .toast-msg.error { border-left: 3px solid var(--danger); }
+    .toast-msg.info { border-left: 3px solid var(--accent); }
+    @keyframes slideIn { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+    /* Spinner */
+    .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Table selector */
+    .table-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .table-tab { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; font-size: .875rem; font-weight: 500; transition: all .15s; }
+    .table-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* Empty state */
+    .empty-state { padding: 48px; text-align: center; color: var(--muted); }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+
+    /* Search */
+    .search-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; color: var(--text); font-size: .875rem; outline: none; width: 220px; }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus { border-color: var(--accent); }
+
+    /* Quarterly table */
+    .q-zero { color: var(--muted); }
+    .q-has { color: var(--success); font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <h5><i class="fa-solid fa-database me-2"></i>ETL Dashboard</h5>
+    <small>migration · stage schema</small>
+  </div>
+  <div class="nav-section">Overview</div>
+  <a class="nav-link active" onclick="showPage('dashboard')" href="#">
+    <i class="fa-solid fa-gauge-high"></i> Dashboard
+    <span class="status-dot"></span>
+  </a>
+  <div class="nav-section">Data</div>
+  <a class="nav-link" onclick="showPage('tables')" href="#">
+    <i class="fa-solid fa-table"></i> Browse Tables
+  </a>
+  <a class="nav-link" onclick="showPage('hired')" href="#">
+    <i class="fa-solid fa-chart-bar"></i> Hired by Quarter
+  </a>
+  <div class="nav-section">Operations</div>
+  <a class="nav-link" onclick="showPage('operations')" href="#">
+    <i class="fa-solid fa-gears"></i> Operations
+  </a>
+</nav>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- Dashboard -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-title">Dashboard</div>
+    <div class="page-sub">Overview of the ETL pipeline and database state.</div>
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="stat-card">
+          <div class="stat-icon blue"><i class="fa-solid fa-building"></i></div>
+          <div>
+            <div class="stat-label">Departments</div>
+            <div class="stat-value" id="count-departments">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="stat-card">
+          <div class="stat-icon purple"><i class="fa-solid fa-briefcase"></i></div>
+          <div>
+            <div class="stat-label">Jobs</div>
+            <div class="stat-value" id="count-jobs">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="stat-card">
+          <div class="stat-icon green"><i class="fa-solid fa-users"></i></div>
+          <div>
+            <div class="stat-label">Hired Employees</div>
+            <div class="stat-value" id="count-hired">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="op-card">
+          <h6><i class="fa-solid fa-bolt me-2" style="color:var(--accent)"></i>Quick Actions</h6>
+          <p>Trigger a full migration or browse data directly.</p>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn-etl btn-primary-etl" onclick="fullMigrate()">
+              <i class="fa-solid fa-play"></i> Full Migrate
+            </button>
+            <button class="btn-etl btn-success-etl" onclick="showPage('tables')">
+              <i class="fa-solid fa-table"></i> Browse Tables
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="op-card">
+          <h6><i class="fa-solid fa-circle-info me-2" style="color:var(--accent)"></i>API Status</h6>
+          <p>Current connection health of the ETL service.</p>
+          <div class="d-flex align-items-center gap-2">
+            <span class="status-dot"></span>
+            <span style="font-size:.875rem">API running on <code style="color:var(--accent)">localhost:5001</code></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tables -->
+  <div class="page" id="page-tables">
+    <div class="page-title">Browse Tables</div>
+    <div class="page-sub">Explore the data loaded in the SQL Server stage schema.</div>
+    <div class="table-tabs">
+      <div class="table-tab active" onclick="loadTable('departments', this)">
+        <i class="fa-solid fa-building me-1"></i> Departments
+      </div>
+      <div class="table-tab" onclick="loadTable('jobs', this)">
+        <i class="fa-solid fa-briefcase me-1"></i> Jobs
+      </div>
+      <div class="table-tab" onclick="loadTable('hired_employees', this)">
+        <i class="fa-solid fa-users me-1"></i> Hired Employees
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-card-header">
+        <h6 id="table-title">departments</h6>
+        <div class="d-flex align-items-center gap-2">
+          <input class="search-input" id="table-search" placeholder="Search..." oninput="filterTable()" />
+          <span id="table-row-count" style="color:var(--muted);font-size:.8rem"></span>
+          <button class="btn-etl btn-primary-etl" onclick="refreshCurrentTable()" style="padding:7px 14px">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <div id="table-body-container">
+          <div class="empty-state"><i class="fa-solid fa-table"></i>Select a table to load data</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hired by Quarter -->
+  <div class="page" id="page-hired">
+    <div class="page-title">Hired Employees by Quarter</div>
+    <div class="page-sub">Number of employees hired per department and job title, broken down by quarter.</div>
+    <div class="d-flex gap-2 mb-3">
+      <button class="btn-etl btn-primary-etl" onclick="loadHired()">
+        <i class="fa-solid fa-rotate-right"></i> Refresh
+      </button>
+      <input class="search-input" id="hired-search" placeholder="Search department or job..." oninput="filterHired()" />
+    </div>
+    <div class="table-card">
+      <div class="table-card-header">
+        <h6>Quarterly Hiring Report</h6>
+        <span id="hired-row-count" style="color:var(--muted);font-size:.8rem"></span>
+      </div>
+      <div class="table-wrapper">
+        <div id="hired-container">
+          <div class="empty-state"><i class="fa-solid fa-chart-bar"></i>Click Refresh to load data</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Operations -->
+  <div class="page" id="page-operations">
+    <div class="page-title">Operations</div>
+    <div class="page-sub">Manage data migration, backups and restores.</div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="op-card">
+          <h6><i class="fa-solid fa-play me-2" style="color:var(--accent)"></i>Full Migration</h6>
+          <p>Load all source files (departments, jobs, hired_employees) into SQL Server. Existing data will be cleared before loading.</p>
+          <button class="btn-etl btn-primary-etl" id="btn-migrate" onclick="fullMigrate()">
+            <i class="fa-solid fa-play"></i> Run Full Migration
+          </button>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="op-card">
+          <h6><i class="fa-solid fa-shield me-2" style="color:var(--success)"></i>Backup Table</h6>
+          <p>Export a table to an Avro backup file stored in the backups directory.</p>
+          <div class="d-flex gap-2">
+            <select id="backup-table" class="search-input" style="width:auto">
+              <option value="departments">departments</option>
+              <option value="jobs">jobs</option>
+              <option value="hired_employees">hired_employees</option>
+            </select>
+            <button class="btn-etl btn-success-etl" onclick="backupTable()">
+              <i class="fa-solid fa-download"></i> Backup
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="op-card">
+          <h6><i class="fa-solid fa-rotate-left me-2" style="color:var(--warning)"></i>Restore Table</h6>
+          <p>Restore a table from a previously created Avro backup file.</p>
+          <div class="d-flex gap-2">
+            <select id="restore-table" class="search-input" style="width:auto">
+              <option value="departments">departments</option>
+              <option value="jobs">jobs</option>
+              <option value="hired_employees">hired_employees</option>
+            </select>
+            <button class="btn-etl btn-warning-etl" onclick="restoreTable()">
+              <i class="fa-solid fa-rotate-left"></i> Restore
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="op-card">
+          <h6><i class="fa-solid fa-upload me-2" style="color:var(--accent2)"></i>Insert Rows</h6>
+          <p>Send JSON data to insert rows into a table (max 1000 rows per request).</p>
+          <div class="d-flex flex-column gap-2">
+            <div class="d-flex gap-2">
+              <select id="insert-table" class="search-input" style="width:auto">
+                <option value="departments">departments</option>
+                <option value="jobs">jobs</option>
+                <option value="hired_employees">hired_employees</option>
+              </select>
+            </div>
+            <textarea id="insert-json" class="search-input" rows="3" style="width:100%;resize:vertical;font-family:monospace;font-size:.8rem" placeholder='[{"id":1,"department":"HR"}]'></textarea>
+            <button class="btn-etl btn-etl" style="background:var(--accent2);color:#fff" onclick="insertData()">
+              <i class="fa-solid fa-upload"></i> Insert
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
